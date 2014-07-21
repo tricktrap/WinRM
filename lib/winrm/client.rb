@@ -176,7 +176,7 @@ Content-Type: application/octet-stream\r
 
         r = @httpcli.post(@endpoint, body, hdr)
 
-        handle_response(r.http_body.content)
+        handle_response(r)
       end
     end
 
