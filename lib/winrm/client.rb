@@ -30,10 +30,13 @@ module WinRM
     end
 
     def setup_kerberos
+      # TODO: Bring up code from 1.2.x branch
       WinRM.log.debug 'Setting up kerberos authentication...'
-      @httpcli.www_auth.instance_variable_set("@authenticator",[
-        @httpcli.www_auth.sspi_negotiate_auth
-      ])
+      auths = @httpcli.www_auth.instance_variable_get('@authenticator')
+      auths.delete_if {|i| i.is_a?(HTTPClient::SSPINegotiateAuth)}
+      service ||= 'HTTP'
+      @service = "#{service}/#{@endpoint.host}@#{opts[:realm]}"
+      init_krb
     end
 
     def setup_ntlm
@@ -149,9 +152,32 @@ module WinRM
     end
 
     def send_message(message)
+      #TODO: modify headers for encrypted Kerberos traffic
       WinRM.logger.debug "Message: #{Nokogiri::XML(message).to_xml}"
-      hdr = {'Content-Type' => 'application/soap+xml;charset=UTF-8', 'Content-Length' => message.length}
-      handle_response(@httpcli.post(endpoint, message, hdr))
+      unless (@service) # NOT kerberos
+        hdr = {'Content-Type' => 'application/soap+xml;charset=UTF-8', 'Content-Length' => message.length}
+        handle_response(@httpcli.post(endpoint, message, hdr))
+      else
+        original_length = message.length
+        pad_len, emsg = winrm_encrypt(message)
+        hdr = {
+          "Connection" => "Keep-Alive",
+          "Content-Type" => "multipart/encrypted;protocol=\"application/HTTP-Kerberos-session-encrypted\";boundary=\"Encrypted Boundary\""
+        }
+
+        body = <<-EOF
+--Encrypted Boundary\r
+Content-Type: application/HTTP-Kerberos-session-encrypted\r
+OriginalContent: type=application/soap+xml;charset=UTF-8;Length=#{original_length + pad_len}\r
+--Encrypted Boundary\r
+Content-Type: application/octet-stream\r
+#{emsg}--Encrypted Boundary\r
+        EOF
+
+        r = @httpcli.post(@endpoint, body, hdr)
+
+        handle_response(winrm_decrypt(r.http_body.content))
+      end
     end
 
     def open_shell(call_opts = {})
@@ -184,6 +210,26 @@ module WinRM
     end
 
     private
+    def init_krb
+      @logger.debug "Initializing Kerberos for #{@service}"
+      @gsscli = GSSAPI::Simple.new(@endpoint.host, @service)
+      token = @gsscli.init_context
+      auth = Base64.strict_encode64 token
+
+      hdr = {"Authorization" => "Kerberos #{auth}",
+        "Connection" => "Keep-Alive",
+        "Content-Type" => "application/soap+xml;charset=UTF-8"
+      }
+      @logger.debug "Sending HTTP POST for Kerberos Authentication"
+      r = @httpcli.post(@endpoint, '', hdr)
+      itok = r.header["WWW-Authenticate"].find { |h| h =~ /^Kerberos/}
+      raise StandardError.new("Server did not respond with a Kerberos token, do you have login rights?") if itok !~ /^Kerberos \S+/
+      #itok = r.header["WWW-Authenticate"].pop
+      itok = itok.split.last
+      itok = Base64.strict_decode64(itok)
+      @gsscli.init_context(itok)
+    end
+
     def shell_opts(call_opts, shell_id = nil)
       rtn_opts = opts.dup.merge(call_opts)
       rtn_opts[:shell_id] = shell_id unless shell_id.nil?
