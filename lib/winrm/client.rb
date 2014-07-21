@@ -297,7 +297,7 @@ Content-Type: application/octet-stream\r
 
     # @return [String] the encrypted request string
     def winrm_encrypt(str)
-      @logger.debug "Encrypting SOAP message:\n#{str}"
+      WinRM.logger.debug "Encrypting SOAP message:\n#{str}"
       iov_cnt = 3
       iov = FFI::MemoryPointer.new(GSSAPI::LibGSSAPI::GssIOVBufferDesc.size * iov_cnt)
 
@@ -327,7 +327,7 @@ Content-Type: application/octet-stream\r
 
     # @return [String] the unencrypted response string
     def winrm_decrypt(str)
-      @logger.debug "Decrypting SOAP message:\n#{str}"
+      WinRM.logger.debug "Decrypting SOAP message:\n#{str}"
       iov_cnt = 3
       iov = FFI::MemoryPointer.new(GSSAPI::LibGSSAPI::GssIOVBufferDesc.size * iov_cnt)
 
@@ -356,7 +356,7 @@ Content-Type: application/octet-stream\r
 
       maj_stat = GSSAPI::LibGSSAPI.gss_unwrap_iov(min_stat, @gsscli.context, conf_state, qop_state, iov, iov_cnt)
 
-      @logger.debug "SOAP message decrypted (MAJ: #{maj_stat}, MIN: #{min_stat.read_int}):\n#{iov1[:buffer].value}"
+      WinRM.logger.debug "SOAP message decrypted (MAJ: #{maj_stat}, MIN: #{min_stat.read_int}):\n#{iov1[:buffer].value}"
 
       Nokogiri::XML(iov1[:buffer].value)
     end
