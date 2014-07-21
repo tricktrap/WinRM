@@ -211,7 +211,7 @@ Content-Type: application/octet-stream\r
 
     private
     def init_krb
-      @WinRM.log.debug "Initializing Kerberos for #{@service}"
+      WinRM.log.debug "Initializing Kerberos for #{@service}"
       @gsscli = GSSAPI::Simple.new(@endpoint.host, @service)
       token = @gsscli.init_context
       auth = Base64.strict_encode64 token
@@ -220,7 +220,7 @@ Content-Type: application/octet-stream\r
         "Connection" => "Keep-Alive",
         "Content-Type" => "application/soap+xml;charset=UTF-8"
       }
-      @WinRM.log.debug "Sending HTTP POST for Kerberos Authentication"
+      WinRM.log.debug "Sending HTTP POST for Kerberos Authentication"
       r = @httpcli.post(@endpoint, '', hdr)
       itok = r.header["WWW-Authenticate"].find { |h| h =~ /^Kerberos/}
       raise StandardError.new("Server did not respond with a Kerberos token, do you have login rights?") if itok !~ /^Kerberos \S+/
