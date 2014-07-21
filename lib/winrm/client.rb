@@ -175,7 +175,8 @@ Content-Type: application/octet-stream\r
         EOF
 
         r = @httpcli.post(@endpoint, body, hdr)
-        r.http_body = winrm_decrypt(r.http_body)
+        temp_string = winrm_decrypt(r.http_body.content)
+        r.http_body.send(:set_content, temp_string)
         handle_response(r)
       end
     end
