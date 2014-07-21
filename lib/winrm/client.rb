@@ -176,7 +176,7 @@ Content-Type: application/octet-stream\r
 
         r = @httpcli.post(@endpoint, body, hdr)
 
-        handle_response(winrm_decrypt(r.http_body.content))
+        handle_response(r.http_body.content)
       end
     end
 
@@ -286,11 +286,13 @@ Content-Type: application/octet-stream\r
     end
 
     def handle_response(resp)
+      body = Nokogiri::XML(resp.body).to_xml
+      body = winrm_decrypt(body) if @service
       if(resp.status == 200)
-        WinRM.logger.debug "Response #{Nokogiri::XML(resp.body).to_xml}"
-        return resp.http_body.content
+        WinRM.logger.debug "Response #{body.to_xml}"
+        return body
       else
-        WinRM.logger.debug resp.http_body.content
+        WinRM.logger.debug body.to_xml
         raise WinRMHTTPTransportError.new("Bad HTTP response returned from server (#{resp.status}).", resp)
       end
     end
