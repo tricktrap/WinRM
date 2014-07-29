@@ -318,7 +318,7 @@ Content-Type: application/octet-stream\r
       maj_stat = GSSAPI::LibGSSAPI.gss_wrap_iov(min_stat, @gsscli.context, 1, GSSAPI::LibGSSAPI::GSS_C_QOP_DEFAULT, conf_state, iov, iov_cnt)
 
       token = [iov0[:buffer].length].pack('L')
-      token += iov0[:buffer].value.nil? "" : iov0[:buffer].value
+      token += iov0[:buffer].value.nil? ?  "" : iov0[:buffer].value
       token += iov1[:buffer].value
       pad_len = iov2[:buffer].length
       token += iov2[:buffer].value if pad_len > 0
